@@ -35,27 +35,14 @@
       };
     };
 
-    ssh = {
-      user = lib.mkOption {
-        type = lib.types.str;
+    ssh.extraOptions = lib.mkOption {
+      type = lib.types.listOf (lib.types.either lib.types.str lib.types.path);
 
-        description = ''
-          The SSH user that will connect to the external host to establish the
-          tunnel
-        '';
+      description = ''
+        Extra options to pass to the SSH command
+      '';
 
-        default = "tunnel";
-      };
-
-      extraOptions = lib.mkOption {
-        type = lib.types.listOf (lib.types.either lib.types.str lib.types.path);
-
-        description = ''
-          Extra options to pass to the SSH command
-        '';
-
-        default = [];
-      };
+      default = [];
     };
   };
 
@@ -89,12 +76,12 @@
             "-o" "StrictHostKeyChecking accept-new"
             "-o" "BatchMode yes"
             "-N"
-            "${ssh.user}@localhost"
+            "tunnel@localhost"
           ] ++ ssh.extraOptions)}
           '';
     };
 
-    users.users."${config.services.holePunch.ssh.user}" = {
+    users.users.tunnel = {
       group = "nogroup";
 
       isSystemUser = true;

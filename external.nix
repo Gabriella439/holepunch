@@ -1,19 +1,5 @@
 { config, lib, ... }: {
-  options.services.holePunch = {
-    enable = lib.mkEnableOption "holePunch";
-
-    ssh = {
-      user = lib.mkOption {
-        type = lib.types.str;
-
-        description = ''
-          The SSH user that will connect to this host to establish the tunnel
-        '';
-
-        default = "tunnel";
-      };
-    };
-  };
+  options.services.holePunch.enable = lib.mkEnableOption "holePunch";
 
   config = lib.mkIf config.services.holePunch.enable {
     networking.firewall.allowedTCPPorts = [ config.services.squid.proxyPort ];
@@ -46,7 +32,7 @@
       };
     };
 
-    users.users."${config.services.holePunch.ssh.user}" = {
+    users.users.tunnel = {
       group = "nogroup";
 
       isSystemUser = true;
