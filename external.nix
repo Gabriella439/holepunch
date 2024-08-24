@@ -36,6 +36,8 @@
       group = "nogroup";
 
       isSystemUser = true;
+
+      useDefaultShell = true;
     };
   };
 }

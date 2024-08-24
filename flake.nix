@@ -16,6 +16,7 @@
 
           overlays = [];
         };
+
       in
         { packages.default = self.checks.${system}.default.driverInteractive;
 
@@ -64,9 +65,6 @@
                         ./keys/test_ed25519.pub
                       ];
                     };
-
-                    services.holePunch.ssh.extraOptions =
-                      [ "-i" tunnel.privateKey ];
                   };
 
                   external = {
@@ -100,7 +98,7 @@
 
               internal.succeed('systemctl restart hole-punch.service')
 
-              external.wait_until_succeeds('ssh -i ${test.privateKey} -o "StrictHostKeyChecking accept-new" -o "BatchMode yes" -p ${toString port} ${test.user}@localhost :')
+              external.wait_until_succeeds('sudo --user ${test.user} ssh -o "StrictHostKeyChecking accept-new" -o "BatchMode yes" -p ${toString port} localhost :')
             '';
         };
     }) // {

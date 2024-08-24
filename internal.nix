@@ -1,5 +1,11 @@
-{ config, lib, pkgs, ... }: {
-  options.services.holePunch = {
+{ config, lib, pkgs, ... }:
+
+let
+  user = "tunnel";
+
+in
+
+{ options.services.holePunch = {
     enable = lib.mkEnableOption "holePunch";
 
     listen = {
@@ -59,32 +65,38 @@
       serviceConfig = {
         Restart = "on-failure";
 
-        RestartSec = "20s";
-      };
+        RestartSec = "7s";
 
-      path = [ pkgs.openssh ];
+        StartLimitIntervalSec = 0;
+
+        User = user;
+      };
 
       script =
         let
           inherit (config.services.holePunch) listen proxy ssh;
 
         in
-          ''
-          ssh ${lib.escapeShellArgs ([
+          "${pkgs.openssh}/bin/ssh ${lib.escapeShellArgs ([
             "-R" "${toString listen.port}:localhost:${toString (lib.head config.services.openssh.ports)}"
             "-o" "ProxyCommand ${pkgs.corkscrew}/bin/corkscrew ${proxy.address} ${toString proxy.port} %h %p"
             "-o" "StrictHostKeyChecking accept-new"
             "-o" "BatchMode yes"
             "-N"
-            "tunnel@localhost"
-          ] ++ ssh.extraOptions)}
-          '';
+            "localhost"
+          ] ++ ssh.extraOptions)}";
     };
 
-    users.users.tunnel = {
+    users.users."${user}" = {
+      isSystemUser = true;
+
+      createHome = true;
+
       group = "nogroup";
 
-      isSystemUser = true;
+      home = "/home/${user}";
+
+      useDefaultShell = true;
     };
   };
 }
