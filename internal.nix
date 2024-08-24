@@ -65,7 +65,7 @@ in
       serviceConfig = {
         Restart = "on-failure";
 
-        RestartSec = "7s";
+        RestartSec = "20s";
 
         StartLimitIntervalSec = 0;
 

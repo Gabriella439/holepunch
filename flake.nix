@@ -58,6 +58,7 @@
                       proxy.address = "external";
                     };
 
+                    # This user is only created for testing purposes
                     users.users."${test.user}" = {
                       isNormalUser = true;
 
@@ -83,6 +84,7 @@
                       ./keys/tunnel_ed25519.pub
                     ];
 
+                    # This user is only created for testing purposes
                     users.users."${test.user}".isNormalUser = true;
                   };
                 };
@@ -95,6 +97,8 @@
 
               external.succeed('install --directory --owner=${test.user} --mode=700 ${test.sshDirectory}')
               external.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.privateKey}')
+
+              external.wait_for_unit('squid.service')
 
               internal.succeed('systemctl restart hole-punch.service')
 
