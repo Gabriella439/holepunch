@@ -37,7 +37,7 @@ in
           Port for the forward proxy that `corkscrew` connects to
         '';
 
-        default = 3128;
+        default = 443;
       };
     };
 
@@ -50,10 +50,36 @@ in
 
       default = [];
     };
+
+    stunnel.port = lib.mkOption {
+      type = lib.types.port;
+
+      description = ''
+        Internal port used by the hole punch
+      '';
+
+      default = 3128;
+    };
   };
 
   config = lib.mkIf config.services.holePunch.enable {
-    services.openssh.enable = true;
+    services = {
+      openssh.enable = true;
+
+      stunnel = {
+        enable = true;
+
+        clients.default =
+          let
+            inherit (config.services.holePunch) proxy stunnel;
+
+          in
+            { accept = "localhost:${toString stunnel.port}";
+
+              connect = "${proxy.address}:${toString proxy.port}";
+            };
+      };
+    };
 
     systemd.services."hole-punch" = {
       wantedBy = [ "multi-user.target" ];
@@ -65,7 +91,7 @@ in
       serviceConfig = {
         Restart = "on-failure";
 
-        RestartSec = "20s";
+        RestartSec = "7s";
 
         StartLimitIntervalSec = 0;
 
@@ -74,12 +100,12 @@ in
 
       script =
         let
-          inherit (config.services.holePunch) listen proxy ssh;
+          inherit (config.services.holePunch) listen ssh stunnel;
 
         in
           "${pkgs.openssh}/bin/ssh ${lib.escapeShellArgs ([
             "-R" "${toString listen.port}:localhost:${toString (lib.head config.services.openssh.ports)}"
-            "-o" "ProxyCommand ${pkgs.corkscrew}/bin/corkscrew ${proxy.address} ${toString proxy.port} %h %p"
+            "-o" "ProxyCommand ${pkgs.corkscrew}/bin/corkscrew localhost ${toString stunnel.port} %h %p"
             "-o" "StrictHostKeyChecking accept-new"
             "-o" "BatchMode yes"
             "-N"

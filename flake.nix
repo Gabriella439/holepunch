@@ -25,17 +25,33 @@
               tunnel = rec {
                 user = "tunnel";
                 
-                sshDirectory = "/home/${user}/.ssh";
+                ssh = rec {
+                  directory = "/home/${user}/.ssh";
 
-                privateKey = "${sshDirectory}/id_ed25519";
+                  key = "${directory}/id_ed25519";
+                };
+
+                certificate =
+                  let
+                    baseName = "/tmp/shared/external";
+
+                  in
+                    { key = "${baseName}.key";
+
+                      crt = "${baseName}.crt";
+
+                      pem = "${baseName}.pem";
+                    };
               };
 
               test = rec {
                 user = "test";
 
-                sshDirectory = "/home/${user}/.ssh";
+                ssh = rec {
+                  directory = "/home/${user}/.ssh";
 
-                privateKey = "${sshDirectory}/id_ed25519";
+                  key = "${directory}/id_ed25519";
+                };
               };
 
               port = 8080;
@@ -58,7 +74,7 @@
                       proxy.address = "external";
                     };
 
-                    # This user is only created for testing purposes
+                    # These options are only for testing purposes
                     users.users."${test.user}" = {
                       isNormalUser = true;
 
@@ -66,14 +82,24 @@
                         ./keys/test_ed25519.pub
                       ];
                     };
+
+                    services.stunnel.clients.default = {
+                      verifyChain = false;
+
+                      OCSPaia = false;
+                    };
                   };
 
-                  external = {
+                  external = { pkgs, ...}: {
                     imports = [ self.nixosModules.external ];
 
-                    # This is the only option you need to set on the internal
-                    # machine
-                    services.holePunch.enable = true;
+                    # These are the options you're always going to want to set
+                    # on the external machine
+                    services.holePunch = {
+                      enable = true;
+
+                      proxy.certificate = tunnel.certificate.pem;
+                    };
 
                     # You need to grant the "tunnel" user on the internal
                     # machine SSH access to the "tunnel" user on the external
@@ -84,21 +110,28 @@
                       ./keys/tunnel_ed25519.pub
                     ];
 
-                    # This user is only created for testing purposes
+                    # These options are only for testing purposes
                     users.users."${test.user}".isNormalUser = true;
+
+                    environment.systemPackages = [ pkgs.openssl ];
                   };
                 };
 
             testScript = ''
               start_all()
 
-              internal.succeed('install --directory --owner=${tunnel.user} --mode=700 ${tunnel.sshDirectory}')
-              internal.succeed('install --owner=${tunnel.user} --mode=400 ${./keys/tunnel_ed25519} ${tunnel.privateKey}')
+              internal.succeed('install --directory --owner=${tunnel.user} --mode=700 ${tunnel.ssh.directory}')
+              internal.succeed('install --owner=${tunnel.user} --mode=400 ${./keys/tunnel_ed25519} ${tunnel.ssh.key}')
 
-              external.succeed('install --directory --owner=${test.user} --mode=700 ${test.sshDirectory}')
-              external.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.privateKey}')
+              external.succeed('install --directory --owner=${test.user} --mode=700 ${test.ssh.directory}')
+              external.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.ssh.key}')
+
+              external.succeed('openssl req -x509 -newkey rsa:2048 -keyout ${tunnel.certificate.key} -out ${tunnel.certificate.crt} -days 365 -nodes -subj "/C=NL/ST=Utrecht/L=Utrecht/O=NixOS/CN=external"')
+              external.succeed('cat ${tunnel.certificate.crt} ${tunnel.certificate.key} > ${tunnel.certificate.pem}')
 
               external.wait_for_unit('squid.service')
+
+              external.succeed('systemctl restart stunnel.service')
 
               internal.succeed('systemctl restart hole-punch.service')
 

@@ -1,8 +1,18 @@
 { config, lib, ... }: {
-  options.services.holePunch.enable = lib.mkEnableOption "holePunch";
+  options.services.holePunch = {
+    enable = lib.mkEnableOption "holePunch";
+
+    proxy.certificate = lib.mkOption {
+      type = lib.types.str;
+
+      description = ''
+        Path to the certificate private key
+      '';
+    };
+  };
 
   config = lib.mkIf config.services.holePunch.enable {
-    networking.firewall.allowedTCPPorts = [ config.services.squid.proxyPort ];
+    networking.firewall.allowedTCPPorts = [ 443 ];
 
     services = {
       openssh.enable = true;
@@ -29,6 +39,18 @@
 
           http_port ${toString config.services.squid.proxyPort}
           '';
+      };
+
+      stunnel = {
+        enable = true;
+
+        servers.default = {
+          accept = "external:443";
+
+          cert = config.services.holePunch.proxy.certificate;
+
+          connect = "localhost:${toString config.services.squid.proxyPort}";
+        };
       };
     };
 
