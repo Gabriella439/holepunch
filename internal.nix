@@ -8,35 +8,23 @@ in
 { options.services.holePunch = {
     enable = lib.mkEnableOption "holePunch";
 
+    address = lib.mkOption {
+      type = lib.types.str;
+
+      description = ''
+        Address of the public gateway server
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
 
       description = ''
-        The public port that you `ssh` into in order to access the internal
-        machine
+        The port on the public gateway server that the hole punch will listen
+        to for inbound SSH connections.
       '';
 
       default = 17705;
-    };
-
-    proxy = {
-      address = lib.mkOption {
-        type = lib.types.str;
-
-        description = ''
-          Address of the forward proxy that `corkscrew` connects to
-        '';
-      };
-
-      port = lib.mkOption {
-        type = lib.types.port;
-
-        description = ''
-          Port for the forward proxy that `corkscrew` connects to
-        '';
-
-        default = 443;
-      };
     };
 
     ssh.extraOptions = lib.mkOption {
@@ -46,6 +34,11 @@ in
         Extra options to pass to the SSH command
       '';
 
+      example = [
+        "-o" "ServerAliveInterval 60"
+        "-o" "ServerAliveCountMax 3"
+      ];
+
       default = [];
     };
 
@@ -53,9 +46,15 @@ in
       type = lib.types.port;
 
       description = ''
-        Internal port used by the hole punch
+        Internal port used by the hole punch.  You don't need to change this
+        unless it conflicts with another port.
       '';
 
+      # This is the same as the default squid port.  It doesn't have to be the
+      # same, but I think this is conceptually the most elegant choice because
+      # all that our internal and external stunnels are doing is tunneling
+      # squid connections on this internal machine to squid connections on the
+      # external machine.
       default = 3128;
     };
   };
@@ -71,12 +70,12 @@ in
 
         clients.default =
           let
-            inherit (config.services.holePunch) proxy stunnel;
+            inherit (config.services.holePunch) address stunnel;
 
           in
             { accept = stunnel.port;
 
-              connect = "${proxy.address}:${toString proxy.port}";
+              connect = "${address}:443";
             };
       };
     };
@@ -118,12 +117,15 @@ in
     users.users."${user}" = {
       isSystemUser = true;
 
-      createHome = true;
-
       group = "nogroup";
+
+      # We create a home directory just in case the user wants to install
+      # SSH private keys underneath `~tunnel/.ssh`
+      createHome = true;
 
       home = "/home/${user}";
 
+      # The `ssh` command will fail without a login shell
       useDefaultShell = true;
     };
   };

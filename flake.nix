@@ -18,7 +18,9 @@
         };
 
       in
-        { packages.default = self.checks.${system}.default.driverInteractive;
+        { packages = {
+            inherit (self.checks.${system}.default) driverInteractive;
+          };
 
           checks.default =
             let
@@ -67,7 +69,7 @@
                     services.holePunch = {
                       enable = true;
 
-                      proxy.address = "external";
+                      address = "external";
                     };
 
                     # These options are only for testing purposes
@@ -94,7 +96,7 @@
                     services.holePunch = {
                       enable = true;
 
-                      proxy.certificate = tunnel.certificate.pem;
+                      certificate = tunnel.certificate.pem;
                     };
 
                     # You need to grant the "tunnel" user on the internal

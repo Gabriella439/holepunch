@@ -13,7 +13,7 @@
       default = 17705;
     };
 
-    proxy.certificate = lib.mkOption {
+    certificate = lib.mkOption {
       type = lib.types.str;
 
       description = ''
@@ -67,7 +67,7 @@
         servers.default = {
           accept = "443";
 
-          cert = config.services.holePunch.proxy.certificate;
+          cert = config.services.holePunch.certificate;
 
           connect = "localhost:${toString config.services.squid.proxyPort}";
         };
