@@ -71,18 +71,18 @@
                     };
 
                     # These options are only for testing purposes
+                    services.stunnel.clients.default = {
+                      verifyChain = false;
+
+                      OCSPaia = false;
+                    };
+
                     users.users."${test.user}" = {
                       isNormalUser = true;
 
                       openssh.authorizedKeys.keyFiles = [
                         ./keys/test_ed25519.pub
                       ];
-                    };
-
-                    services.stunnel.clients.default = {
-                      verifyChain = false;
-
-                      OCSPaia = false;
                     };
                   };
 
