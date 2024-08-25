@@ -120,21 +120,34 @@
             testScript = ''
               start_all()
 
+              # NixOS doesn't have a simple way to dynamically set a user's
+              # authorized keys, so for this test I hardcode the public keys as
+              # authorized keys (above) and then install the corresponding
+              # private keys here.
               internal.succeed('install --directory --owner=${tunnel.user} --mode=700 ${tunnel.ssh.directory}')
               internal.succeed('install --owner=${tunnel.user} --mode=400 ${./keys/tunnel_ed25519} ${tunnel.ssh.key}')
-
               external.succeed('install --directory --owner=${test.user} --mode=700 ${test.ssh.directory}')
               external.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.ssh.key}')
 
-              external.succeed('openssl req -x509 -newkey rsa:2048 -keyout ${tunnel.certificate.key} -out ${tunnel.certificate.crt} -days 365 -nodes -subj "/C=NL/ST=Utrecht/L=Utrecht/O=NixOS/CN=external"')
+              # Normally I'd be fine hard-coding the self-signed certificate
+              # for this test, but there's no way to generate a certificate
+              # that doesn't expire, so this test generates a self-signed
+              # certificate each run.
+              external.succeed('openssl req -x509 -newkey rsa:2048 -keyout ${tunnel.certificate.key} -out ${tunnel.certificate.crt} -days 1 -nodes -subj "/C=NL/ST=Utrecht/L=Utrecht/O=NixOS/CN=external"')
+
+              # `stunnel` requires the public and private key of the
+              # certificate pair to be stapled together in that order.
               external.succeed('cat ${tunnel.certificate.crt} ${tunnel.certificate.key} > ${tunnel.certificate.pem}')
 
-              external.wait_for_unit('squid.service')
+              # `stunnel` fails the first time it runs because the certificate
+              # was not yet present, so now that the certificate is in place
+              # we can restart `stunnel`, which will now succeed.  In a real
+              # deploy of this configuration the certificate would likely
+              # already be in place before `stunnel` starts.
+              external.systemctl('restart stunnel.service')
 
-              external.succeed('systemctl restart stunnel.service')
-
-              internal.succeed('systemctl restart hole-punch.service')
-
+              # Verify that we can now make an  inbound `ssh` connection from
+              # the `external` machine to the `internal` machine.
               external.wait_until_succeeds('sudo --user ${test.user} ssh -o "StrictHostKeyChecking accept-new" -o "BatchMode yes" -p ${toString port} localhost :')
             '';
         };
