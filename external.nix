@@ -44,6 +44,8 @@
       stunnel = {
         enable = true;
 
+        logLevel = "notice";
+
         servers.default = {
           accept = "external:443";
 

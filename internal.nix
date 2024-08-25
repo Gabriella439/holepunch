@@ -69,6 +69,8 @@ in
       stunnel = {
         enable = true;
 
+        logLevel = "notice";
+
         clients.default =
           let
             inherit (config.services.holePunch) proxy stunnel;
@@ -96,6 +98,8 @@ in
         StartLimitIntervalSec = 0;
 
         User = user;
+
+        Type = "exec";
       };
 
       script =
