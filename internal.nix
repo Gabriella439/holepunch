@@ -8,17 +8,15 @@ in
 { options.services.holePunch = {
     enable = lib.mkEnableOption "holePunch";
 
-    listen = {
-      port = lib.mkOption {
-        type = lib.types.port;
+    port = lib.mkOption {
+      type = lib.types.port;
 
-        description = ''
-          The port that the hole punch will listen on that will accept incoming
-          SSH connections
+      description = ''
+        The public port that you `ssh` into in order to access the internal
+        machine
+      '';
 
-          This should not be the same port as `sshd`.
-        '';
-      };
+      default = 17705;
     };
 
     proxy = {
@@ -76,7 +74,7 @@ in
             inherit (config.services.holePunch) proxy stunnel;
 
           in
-            { accept = "localhost:${toString stunnel.port}";
+            { accept = stunnel.port;
 
               connect = "${proxy.address}:${toString proxy.port}";
             };
@@ -104,11 +102,11 @@ in
 
       script =
         let
-          inherit (config.services.holePunch) listen ssh stunnel;
+          inherit (config.services.holePunch) port ssh stunnel;
 
         in
           "${pkgs.openssh}/bin/ssh ${lib.escapeShellArgs ([
-            "-R" "${toString listen.port}:localhost:${toString (lib.head config.services.openssh.ports)}"
+            "-R" ":${toString port}:localhost:${toString (lib.head config.services.openssh.ports)}"
             "-o" "ProxyCommand ${pkgs.corkscrew}/bin/corkscrew localhost ${toString stunnel.port} %h %p"
             "-o" "StrictHostKeyChecking accept-new"
             "-o" "BatchMode yes"

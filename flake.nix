@@ -54,8 +54,6 @@
                 };
               };
 
-              port = 8080;
-
             in
               pkgs.nixosTest {
                 name = "test";
@@ -68,8 +66,6 @@
                     # on the internal machine
                     services.holePunch = {
                       enable = true;
-
-                      listen = { inherit port; };
 
                       proxy.address = "external";
                     };
@@ -110,10 +106,17 @@
                       ./keys/tunnel_ed25519.pub
                     ];
 
-                    # These options are only for testing purposes
-                    users.users."${test.user}".isNormalUser = true;
-
+                    # This option is only for testing purposes, so that we can
+                    # generate a self-signed certificate below.
                     environment.systemPackages = [ pkgs.openssl ];
+                  };
+
+                  # The `client` machine attempting to `ssh` into the
+                  # `internal` machine.
+                  client = { pkgs, ... }: {
+                    environment.defaultPackages = [ pkgs.openssh ];
+
+                    users.users."${test.user}".isNormalUser = true;
                   };
                 };
 
@@ -126,8 +129,8 @@
               # private keys here.
               internal.succeed('install --directory --owner=${tunnel.user} --mode=700 ${tunnel.ssh.directory}')
               internal.succeed('install --owner=${tunnel.user} --mode=400 ${./keys/tunnel_ed25519} ${tunnel.ssh.key}')
-              external.succeed('install --directory --owner=${test.user} --mode=700 ${test.ssh.directory}')
-              external.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.ssh.key}')
+              client.succeed('install --directory --owner=${test.user} --mode=700 ${test.ssh.directory}')
+              client.succeed('install --owner=${test.user} --mode=400 ${./keys/test_ed25519} ${test.ssh.key}')
 
               # Normally I'd be fine hard-coding the self-signed certificate
               # for this test, but there's no way to generate a certificate
@@ -146,9 +149,9 @@
               # already be in place before `stunnel` starts.
               external.systemctl('restart stunnel.service')
 
-              # Verify that we can now make an  inbound `ssh` connection from
-              # the `external` machine to the `internal` machine.
-              external.wait_until_succeeds('sudo --user ${test.user} ssh -o "StrictHostKeyChecking accept-new" -o "BatchMode yes" -p ${toString port} localhost :')
+              # Verify that the `client` can now `ssh` into the `internal`
+              # maching using port 17705 of the `external` machine.
+              client.wait_until_succeeds('sudo --user ${test.user} ssh -o "StrictHostKeyChecking accept-new" -o "BatchMode yes" -p 17705 external :')
             '';
         };
     }) // {

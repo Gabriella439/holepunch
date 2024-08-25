@@ -2,6 +2,17 @@
   options.services.holePunch = {
     enable = lib.mkEnableOption "holePunch";
 
+    port = lib.mkOption {
+      type = lib.types.port;
+
+      description = ''
+        The public port that you `ssh` into in order to access the internal
+        machine
+      '';
+
+      default = 17705;
+    };
+
     proxy.certificate = lib.mkOption {
       type = lib.types.str;
 
@@ -12,10 +23,17 @@
   };
 
   config = lib.mkIf config.services.holePunch.enable {
-    networking.firewall.allowedTCPPorts = [ 443 ];
+    networking.firewall.allowedTCPPorts = [
+      config.services.holePunch.port
+      443
+    ];
 
     services = {
-      openssh.enable = true;
+      openssh = {
+        enable = true;
+
+        settings.GatewayPorts = "clientspecified";
+      };
 
       squid = {
         enable = true;
@@ -47,7 +65,7 @@
         logLevel = "notice";
 
         servers.default = {
-          accept = "external:443";
+          accept = "443";
 
           cert = config.services.holePunch.proxy.certificate;
 
